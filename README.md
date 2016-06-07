@@ -1,6 +1,6 @@
-Node.js version 6
-DynamoDB
-AWS-SDK
+Node.js version 6;
+DynamoDB;
+AWS-SDK;
 
 Publish reviewed product to the template store. 
 
