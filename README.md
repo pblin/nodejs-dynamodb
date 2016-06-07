@@ -1,3 +1,7 @@
+Node.js version 6
+DynamoDB
+AWS-SDK
+
 Publish reviewed product to the template store. 
 
 curl -X PUT -H "Content-type: application/json" -H "Accept: application/json" --data @${templateName}.template http://${hostname}:8080/api/template/${templateName}
