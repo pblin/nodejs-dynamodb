@@ -1,0 +1,707 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Conditions": {
+    "CreateElbWithHttpsListener": {
+      "Fn::Not": [
+        {
+          "Fn::Equals": [
+            {
+              "Ref": "SslCertificateArn"
+            },
+            ""
+          ]
+        }
+      ]
+    },
+    "CreateElbWithoutHttpsListener": {
+      "Fn::Equals": [
+        {
+          "Ref": "SslCertificateArn"
+        },
+        ""
+      ]
+    },
+    "IsInstancesPortHttps": {
+      "Fn::Or": [
+        {
+          "Fn::Equals": [
+            {
+              "Ref": "InstancesPort"
+            },
+            "443"
+          ]
+        },
+        {
+          "Fn::Equals": [
+            {
+              "Ref": "InstancesPort"
+            },
+            "8443"
+          ]
+        }
+      ]
+    },
+    "IsStandaloneStack": {
+      "Fn::Equals": [
+        {
+          "Ref": "ElbSecurityGroup"
+        },
+        ""
+      ]
+    },
+    "SetEc2InstancesToAttach": {
+      "Fn::Equals": [
+        {
+          "Ref": "AttachEc2Instances"
+        },
+        "yes"
+      ]
+    }
+  },
+  "Description": "This is a sample, non-production-ready template that describes an Elastic Load Balancer.",
+  "Metadata": {
+    "AWS::CloudFormation::Interface": {
+      "ParameterGroups": [
+        {
+          "Label": {
+            "default": "VPC and subnets selection"
+          },
+          "Parameters": [
+            "Vpc",
+            "ElasticLoadBalancerSubnets"
+          ]
+        },
+        {
+          "Label": {
+            "default": "Elastic Load Balancer configuration"
+          },
+          "Parameters": [
+            "ElasticLoadBalancerScheme",
+            "HealthCheckTargetUrl",
+            "SslCertificateArn"
+          ]
+        },
+        {
+          "Label": {
+            "default": "Elastic Load Balancer tier type"
+          },
+          "Parameters": [
+            "ElbTierType"
+          ]
+        },
+        {
+          "Label": {
+            "default": "ELB Security Group configuration"
+          },
+          "Parameters": [
+            "ElbSecurityGroup",
+            "ElbAccessFrom"
+          ]
+        },
+        {
+          "Label": {
+            "default": "VPC Standalone Security Group TCP port configuration for ELB and instances"
+          },
+          "Parameters": [
+            "ElasticLoadBalancerHttpPort",
+            "ElasticLoadBalancerHttpsPort",
+            "InstancesPort"
+          ]
+        },
+        {
+          "Label": {
+            "default": "EC2 instances to attach"
+          },
+          "Parameters": [
+            "AttachEc2Instances",
+            "Ec2InstancesToAttach"
+          ]
+        },
+        {
+          "Label": {
+            "default": "Tags configuration"
+          },
+          "Parameters": [
+            "ApplicationTag",
+            "EnvironmentTag",
+            "LineOfBusinessTag",
+            "OwnerTag"
+          ]
+        }
+      ],
+      "ParameterLabels": {
+        "ApplicationTag": {
+          "default": "Which value should be assigned to the Application tag?"
+        },
+        "AttachEC2Instances": {
+          "default": "Attach existing EC2 instances to this ELB?"
+        },
+        "EC2InstancesToAttach": {
+          "default": "If you wish to attach EC2 instances to the ELB, specify comma delimited instance IDs."
+        },
+        "ElasticLoadBalancerHttpPort": {
+          "default": "Which TCP port should be used to listen for HTTP traffic?"
+        },
+        "ElasticLoadBalancerHttpsPort": {
+          "default": "Which TCP port should be used to listen for HTTPS traffic?"
+        },
+        "ElasticLoadBalancerScheme": {
+          "default": "Will the ELB be Internet-facing or internal?"
+        },
+        "ElasticLoadBalancerSubnets": {
+          "default": "Which 2 existing subnets should be used for the ELB?"
+        },
+        "ElbAccessFrom": {
+          "default": "If this is a standalone stack instead, which CIDR block is allowed to connect to the ELB?"
+        },
+        "ElbSecurityGroup": {
+          "default": "If this is not a standalone stack, please specify the existing SecurityGroup to use for this ELB."
+        },
+        "ElbTierType": {
+          "default": "Which tier type is this ELB for?"
+        },
+        "EnvironmentTag": {
+          "default": "Which value should be assigned to the Environment tag?"
+        },
+        "HealthCheckTargetUrl": {
+          "default": "What is the URL for the instance health check?"
+        },
+        "InstancesPort": {
+          "default": "Which TCP port will instances be listening to?"
+        },
+        "LineOfBusinessTag": {
+          "default": "Which value should be assigned to the LineOfBusiness tag?"
+        },
+        "OwnerTag": {
+          "default": "Which value should be assigned to the Owner tag?"
+        },
+        "SslCertificateArn": {
+          "default": "If you wish to create this ELB with an HTTPS listener, specify the certificate ARN to use."
+        },
+        "Vpc": {
+          "default": "Which existing VPC should be used?"
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "ElasticLoadBalancerDnsName": {
+      "Condition": "CreateElbWithoutHttpsListener",
+      "Description": "DNS name of the Elastic Load Balancer.",
+      "Value": {
+        "Fn::GetAtt": [
+          "ElasticLoadBalancer",
+          "DNSName"
+        ]
+      }
+    },
+    "ElasticLoadBalancerWithHttpsDnsName": {
+      "Condition": "CreateElbWithHttpsListener",
+      "Description": "DNS name of the Elastic Load Balancer.",
+      "Value": {
+        "Fn::GetAtt": [
+          "ElasticLoadBalancerWithHttps",
+          "DNSName"
+        ]
+      }
+    }
+  },
+  "Parameters": {
+    "ApplicationTag": {
+      "Default": "sample-app",
+      "Description": "Value for the application tag.",
+      "Type": "String"
+    },
+    "AttachEc2Instances": {
+      "AllowedValues": [
+        "yes",
+        "no"
+      ],
+      "ConstraintDescription": "must be a valid selection.",
+      "Default": "yes",
+      "Description": "Please specify whether to attach EC2 instances to this ELB.  You choose to attach EC2 instances, please specify instance IDs in the parameter below.",
+      "Type": "String"
+    },
+    "Ec2InstancesToAttach": {
+      "Description": "If you wish to attach EC2 instances to the ELB, specify EC2 instance IDs delimited by a comma; otherwise, leave the value for this parameter blank.  If you enter EC2 instance IDs here and you choose 'no' in the parameter above, instance IDs will be ignored.",
+      "Type": "CommaDelimitedList"
+    },
+    "ElasticLoadBalancerHttpPort": {
+      "AllowedValues": [
+        "80",
+        "8080"
+      ],
+      "ConstraintDescription": "must be a valid selection.",
+      "Default": "80",
+      "Description": "Please specify the TCP port that will be used by this ELB for HTTP traffic.",
+      "Type": "String"
+    },
+    "ElasticLoadBalancerHttpsPort": {
+      "AllowedValues": [
+        "443",
+        "8443"
+      ],
+      "ConstraintDescription": "must be a valid selection.",
+      "Default": "443",
+      "Description": "Please specify the TCP port that will be used by this ELB for HTTPS traffic.  If you do not specify an SSL certificate in the Elastic Load Balancer configuration section, this value will be ignored.",
+      "Type": "String"
+    },
+    "ElasticLoadBalancerScheme": {
+      "AllowedValues": [
+        "internet-facing",
+        "internal"
+      ],
+      "ConstraintDescription": "please specify either internet-facing or internal.",
+      "Default": "internal",
+      "Description": "Whether to set up the Elastic Load Balancer with an Internet-facing or internal scheme.  If the ELB will be Internet-facing, you should specify public subnets in the relevant parameter in the VPC and subnets section above.",
+      "Type": "String"
+    },
+    "ElasticLoadBalancerSubnets": {
+      "Description": "Please specify two existing subnets where to place the Elastic Load Balancer.",
+      "Type": "List<AWS::EC2::Subnet::Id>"
+    },
+    "ElbAccessFrom": {
+      "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+      "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x.",
+      "Default": "0.0.0.0/0",
+      "Description": "The CIDR block allowed to access this ELB.  If this is not a standalone stack, the value for this parameter will be ignored.",
+      "MaxLength": "18",
+      "MinLength": "9",
+      "Type": "String"
+    },
+    "ElbSecurityGroup": {
+      "Default": "",
+      "Description": "If this is not a standalone stack, please specify the physical ID of the existing SecurityGroup to use for this ELB.  The relevant value for this parameter can be found in the Outputs section of the stack that created Security Groups for the application.",
+      "Type": "String"
+    },
+    "ElbTierType": {
+      "AllowedValues": [
+        "AppServer",
+        "WebServer"
+      ],
+      "ConstraintDescription": "must be a valid selection.",
+      "Description": "Please specify a tier type.",
+      "Type": "String"
+    },
+    "EnvironmentTag": {
+      "AllowedValues": [
+        "dev",
+        "qa",
+        "prod"
+      ],
+      "ConstraintDescription": "must be a valid environment name.",
+      "Default": "dev",
+      "Description": "Value for the environment tag.",
+      "Type": "String"
+    },
+    "HealthCheckTargetUrl": {
+      "Default": "/",
+      "Description": "Value for the instances health check URL.",
+      "Type": "String"
+    },
+    "InstancesPort": {
+      "AllowedValues": [
+        "443",
+        "80",
+        "8080",
+        "8443"
+      ],
+      "ConstraintDescription": "must be a valid selection.",
+      "Default": "80",
+      "Description": "Please specify the TCP port that will be used by instances of this tier.",
+      "Type": "String"
+    },
+    "LineOfBusinessTag": {
+      "Default": "sample-line-of-business",
+      "Description": "Value for the line of business tag.",
+      "Type": "String"
+    },
+    "OwnerTag": {
+      "Default": "sample-owner",
+      "Description": "Value for the owner tag.",
+      "Type": "String"
+    },
+    "SslCertificateArn": {
+      "Default": "",
+      "Description": "If you wish to create this ELB with an HTTPS listener, specify the Amazon Resource Name (ARN) of the existing SSL certificate to use with the ELB, otherwise do not specify any value.  Specify the value by following this format: arn:aws:iam::REPLACE_WITH_AWS_ACCOUNT_NUMBER:server-certificate/REPLACE_WITH_EXISTING_CERTIFICATE_NAME",
+      "Type": "String"
+    },
+    "Vpc": {
+      "Description": "ID of the existing VPC.",
+      "Type": "AWS::EC2::VPC::Id"
+    }
+  },
+  "Resources": {
+    "ElasticLoadBalancer": {
+      "Condition": "CreateElbWithoutHttpsListener",
+      "Properties": {
+        "ConnectionDrainingPolicy": {
+          "Enabled": "true",
+          "Timeout": "60"
+        },
+        "ConnectionSettings": {
+          "IdleTimeout": 60
+        },
+        "CrossZone": true,
+        "HealthCheck": {
+          "HealthyThreshold": "3",
+          "Interval": "30",
+          "Target": {
+            "Fn::Join": [
+              "",
+              [
+                "HTTP:",
+                {
+                  "Ref": "InstancesPort"
+                },
+                {
+                  "Ref": "HealthCheckTargetUrl"
+                }
+              ]
+            ]
+          },
+          "Timeout": "5",
+          "UnhealthyThreshold": "5"
+        },
+        "Instances": {
+          "Fn::If": [
+            "SetEc2InstancesToAttach",
+            {
+              "Ref": "Ec2InstancesToAttach"
+            },
+            {
+              "Ref": "AWS::NoValue"
+            }
+          ]
+        },
+        "Listeners": [
+          {
+            "InstancePort": {
+              "Ref": "InstancesPort"
+            },
+            "InstanceProtocol": {
+              "Fn::If": [
+                "IsInstancesPortHttps",
+                "HTTPS",
+                "HTTP"
+              ]
+            },
+            "LoadBalancerPort": {
+              "Ref": "ElasticLoadBalancerHttpPort"
+            },
+            "Protocol": "HTTP"
+          }
+        ],
+        "Scheme": {
+          "Ref": "ElasticLoadBalancerScheme"
+        },
+        "SecurityGroups": [
+          {
+            "Fn::If": [
+              "IsStandaloneStack",
+              {
+                "Ref": "StandaloneElbSecurityGroup"
+              },
+              {
+                "Ref": "ElbSecurityGroup"
+              }
+            ]
+          }
+        ],
+        "Subnets": {
+          "Ref": "ElasticLoadBalancerSubnets"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "ApplicationTag"
+                  },
+                  {
+                    "Ref": "EnvironmentTag"
+                  },
+                  {
+                    "Ref": "ElbTierType"
+                  },
+                  "Elb"
+                ]
+              ]
+            }
+          },
+          {
+            "Key": "LineOfBusiness",
+            "Value": {
+              "Ref": "LineOfBusinessTag"
+            }
+          },
+          {
+            "Key": "Owner",
+            "Value": {
+              "Ref": "OwnerTag"
+            }
+          },
+          {
+            "Key": "Application",
+            "Value": {
+              "Ref": "ApplicationTag"
+            }
+          },
+          {
+            "Key": "Environment",
+            "Value": {
+              "Ref": "EnvironmentTag"
+            }
+          }
+        ]
+      },
+      "Type": "AWS::ElasticLoadBalancing::LoadBalancer"
+    },
+    "ElasticLoadBalancerWithHttps": {
+      "Condition": "CreateElbWithHttpsListener",
+      "Properties": {
+        "ConnectionDrainingPolicy": {
+          "Enabled": "true",
+          "Timeout": "60"
+        },
+        "ConnectionSettings": {
+          "IdleTimeout": 60
+        },
+        "CrossZone": true,
+        "HealthCheck": {
+          "HealthyThreshold": "3",
+          "Interval": "30",
+          "Target": {
+            "Fn::Join": [
+              "",
+              [
+                {
+                  "Fn::If": [
+                    "IsInstancesPortHttps",
+                    "HTTPS",
+                    "HTTP"
+                  ]
+                },
+                ":",
+                {
+                  "Ref": "InstancesPort"
+                },
+                {
+                  "Ref": "HealthCheckTargetUrl"
+                }
+              ]
+            ]
+          },
+          "Timeout": "5",
+          "UnhealthyThreshold": "5"
+        },
+        "Instances": {
+          "Ref": "Ec2InstancesToAttach"
+        },
+        "Listeners": [
+          {
+            "InstancePort": {
+              "Ref": "InstancesPort"
+            },
+            "InstanceProtocol": {
+              "Fn::If": [
+                "IsInstancesPortHttps",
+                "HTTPS",
+                "HTTP"
+              ]
+            },
+            "LoadBalancerPort": {
+              "Ref": "ElasticLoadBalancerHttpPort"
+            },
+            "Protocol": "HTTP"
+          },
+          {
+            "InstancePort": {
+              "Ref": "InstancesPort"
+            },
+            "InstanceProtocol": {
+              "Fn::If": [
+                "IsInstancesPortHttps",
+                "HTTPS",
+                "HTTP"
+              ]
+            },
+            "LoadBalancerPort": {
+              "Ref": "ElasticLoadBalancerHttpsPort"
+            },
+            "Protocol": "HTTPS",
+            "SSLCertificateId": {
+              "Ref": "SslCertificateArn"
+            }
+          }
+        ],
+        "Scheme": {
+          "Ref": "ElasticLoadBalancerScheme"
+        },
+        "SecurityGroups": [
+          {
+            "Fn::If": [
+              "IsStandaloneStack",
+              {
+                "Ref": "StandaloneElbSecurityGroup"
+              },
+              {
+                "Ref": "ElbSecurityGroup"
+              }
+            ]
+          }
+        ],
+        "Subnets": {
+          "Ref": "ElasticLoadBalancerSubnets"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "ApplicationTag"
+                  },
+                  {
+                    "Ref": "EnvironmentTag"
+                  },
+                  {
+                    "Ref": "ElbTierType"
+                  },
+                  "Elb"
+                ]
+              ]
+            }
+          },
+          {
+            "Key": "LineOfBusiness",
+            "Value": {
+              "Ref": "LineOfBusinessTag"
+            }
+          },
+          {
+            "Key": "Owner",
+            "Value": {
+              "Ref": "OwnerTag"
+            }
+          },
+          {
+            "Key": "Application",
+            "Value": {
+              "Ref": "ApplicationTag"
+            }
+          },
+          {
+            "Key": "Environment",
+            "Value": {
+              "Ref": "EnvironmentTag"
+            }
+          }
+        ]
+      },
+      "Type": "AWS::ElasticLoadBalancing::LoadBalancer"
+    },
+    "StandaloneElbSecurityGroup": {
+      "Condition": "IsStandaloneStack",
+      "Properties": {
+        "GroupDescription": "Allow access from a user specified CIDR block.",
+        "SecurityGroupEgress": [
+          {
+            "CidrIp": "0.0.0.0/0",
+            "FromPort": "80",
+            "IpProtocol": "tcp",
+            "ToPort": "80"
+          },
+          {
+            "CidrIp": "0.0.0.0/0",
+            "FromPort": "443",
+            "IpProtocol": "tcp",
+            "ToPort": "443"
+          }
+        ],
+        "SecurityGroupIngress": [
+          {
+            "CidrIp": {
+              "Ref": "ElbAccessFrom"
+            },
+            "FromPort": {
+              "Ref": "ElasticLoadBalancerHttpPort"
+            },
+            "IpProtocol": "tcp",
+            "ToPort": {
+              "Ref": "ElasticLoadBalancerHttpPort"
+            }
+          },
+          {
+            "CidrIp": {
+              "Ref": "ElbAccessFrom"
+            },
+            "FromPort": {
+              "Ref": "ElasticLoadBalancerHttpsPort"
+            },
+            "IpProtocol": "tcp",
+            "ToPort": {
+              "Ref": "ElasticLoadBalancerHttpsPort"
+            }
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "ApplicationTag"
+                  },
+                  {
+                    "Ref": "EnvironmentTag"
+                  },
+                  {
+                    "Ref": "ElbTierType"
+                  },
+                  "Elb",
+                  "SecurityGroup"
+                ]
+              ]
+            }
+          },
+          {
+            "Key": "LineOfBusiness",
+            "Value": {
+              "Ref": "LineOfBusinessTag"
+            }
+          },
+          {
+            "Key": "Owner",
+            "Value": {
+              "Ref": "OwnerTag"
+            }
+          },
+          {
+            "Key": "Application",
+            "Value": {
+              "Ref": "ApplicationTag"
+            }
+          },
+          {
+            "Key": "Environment",
+            "Value": {
+              "Ref": "EnvironmentTag"
+            }
+          }
+        ],
+        "VpcId": {
+          "Ref": "Vpc"
+        }
+      },
+      "Type": "AWS::EC2::SecurityGroup"
+    }
+  }
+}

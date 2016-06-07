@@ -1,0 +1,596 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "This is a sample, non-production-ready template that describes sample VPC Security Groups for a sample application stack composed of a web server tier, an app server tier and an RDS database.  Web server and app server tiers will be each composed of an Elastic Load Balancer and a fleet of EC2 instances.",
+  "Metadata": {
+    "AWS::CloudFormation::Interface": {
+      "ParameterGroups": [
+        {
+          "Label": {
+            "default": "VPC selection"
+          },
+          "Parameters": [
+            "Vpc"
+          ]
+        },
+        {
+          "Label": {
+            "default": "VPC Security Groups base configuration"
+          },
+          "Parameters": [
+            "WebServerElasticLoadBalancerAccessFrom",
+            "BastionHostSecurityGroup"
+          ]
+        },
+        {
+          "Label": {
+            "default": "Tags configuration"
+          },
+          "Parameters": [
+            "ApplicationTag",
+            "EnvironmentTag",
+            "LineOfBusinessTag",
+            "OwnerTag"
+          ]
+        }
+      ],
+      "ParameterLabels": {
+        "ApplicationTag": {
+          "default": "Which value should be assigned to the Application tag?"
+        },
+        "BastionHostSecurityGroup": {
+          "default": "Which existing Bastion Host Security Group should be used?"
+        },
+        "EnvironmentTag": {
+          "default": "Which value should be assigned to the Environment tag?"
+        },
+        "LineOfBusinessTag": {
+          "default": "Which value should be assigned to the LineOfBusiness tag?"
+        },
+        "OwnerTag": {
+          "default": "Which value should be assigned to the Owner tag?"
+        },
+        "Vpc": {
+          "default": "Which existing VPC should be used?"
+        },
+        "WebServerElasticLoadBalancerAccessFrom": {
+          "default": "Which CIDR block will be allowed to connect to the Web Server Elastic Load Balancer?"
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "AppServerElasticLoadBalancerSecurityGroup": {
+      "Description": "Physical ID of the AppServerElasticLoadBalancer SecurityGroup.",
+      "Value": {
+        "Ref": "AppServerElasticLoadBalancerSecurityGroup"
+      }
+    },
+    "AppServerSecurityGroup": {
+      "Description": "Physical ID of the AppServer SecurityGroup.",
+      "Value": {
+        "Ref": "AppServerSecurityGroup"
+      }
+    },
+    "BastionHostSecurityGroup": {
+      "Description": "Physical ID of the existing, user specified BastionHost SecurityGroup.",
+      "Value": {
+        "Ref": "BastionHostSecurityGroup"
+      }
+    },
+    "RdsSecurityGroup": {
+      "Description": "Physical ID of the RDS SecurityGroup.",
+      "Value": {
+        "Ref": "RdsSecurityGroup"
+      }
+    },
+    "WebServerElasticLoadBalancerSecurityGroup": {
+      "Description": "Physical ID of the WebServerElasticLoadBalancer SecurityGroup.",
+      "Value": {
+        "Ref": "WebServerElasticLoadBalancerSecurityGroup"
+      }
+    },
+    "WebServerSecurityGroup": {
+      "Description": "Physical ID of the WebServer SecurityGroup.",
+      "Value": {
+        "Ref": "WebServerSecurityGroup"
+      }
+    }
+  },
+  "Parameters": {
+    "ApplicationTag": {
+      "Default": "sample-app",
+      "Description": "Value for the application tag.",
+      "Type": "String"
+    },
+    "BastionHostSecurityGroup": {
+      "Description": "Please specify the physical ID of the existing VPC Security Group for the Bastion Host.  If you are using this existing Security Group to connect to web and app servers, outbound traffic to e.g. tcp/22 or tcp/3389 should be allowed on the existing Security Group.",
+      "Type": "AWS::EC2::SecurityGroup::Id"
+    },
+    "EnvironmentTag": {
+      "AllowedValues": [
+        "dev",
+        "qa",
+        "prod"
+      ],
+      "ConstraintDescription": "must be a valid environment name.",
+      "Default": "dev",
+      "Description": "Value for the environment tag.",
+      "Type": "String"
+    },
+    "LineOfBusinessTag": {
+      "Default": "sample-line-of-business",
+      "Description": "Value for the line of business tag.",
+      "Type": "String"
+    },
+    "OwnerTag": {
+      "Default": "sample-owner",
+      "Description": "Value for the owner tag.",
+      "Type": "String"
+    },
+    "Vpc": {
+      "Description": "Please specify the physical ID of the existing VPC to use.",
+      "Type": "AWS::EC2::VPC::Id"
+    },
+    "WebServerElasticLoadBalancerAccessFrom": {
+      "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+      "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x.",
+      "Default": "0.0.0.0/0",
+      "Description": "The CIDR block allowed to access the Elastic Load Balancer via HTTP.",
+      "MaxLength": "18",
+      "MinLength": "9",
+      "Type": "String"
+    }
+  },
+  "Resources": {
+    "AppServerElasticLoadBalancerEgressRule": {
+      "Properties": {
+        "DestinationSecurityGroupId": {
+          "Fn::GetAtt": [
+            "AppServerSecurityGroup",
+            "GroupId"
+          ]
+        },
+        "FromPort": "80",
+        "GroupId": {
+          "Fn::GetAtt": [
+            "AppServerElasticLoadBalancerSecurityGroup",
+            "GroupId"
+          ]
+        },
+        "IpProtocol": "tcp",
+        "ToPort": "80"
+      },
+      "Type": "AWS::EC2::SecurityGroupEgress"
+    },
+    "AppServerElasticLoadBalancerSecurityGroup": {
+      "Properties": {
+        "GroupDescription": "Allow HTTP or HTTPS traffic in inbound from the web server fleet.  An Egress rule will allow outbound traffic to app server instances.",
+        "SecurityGroupEgress": [],
+        "SecurityGroupIngress": [
+          {
+            "FromPort": "80",
+            "IpProtocol": "tcp",
+            "SourceSecurityGroupId": {
+              "Ref": "WebServerSecurityGroup"
+            },
+            "ToPort": "80"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "ApplicationTag"
+                  },
+                  {
+                    "Ref": "EnvironmentTag"
+                  },
+                  "AppServerElasticLoadBalancer",
+                  "SecurityGroup"
+                ]
+              ]
+            }
+          },
+          {
+            "Key": "LineOfBusiness",
+            "Value": {
+              "Ref": "LineOfBusinessTag"
+            }
+          },
+          {
+            "Key": "Owner",
+            "Value": {
+              "Ref": "OwnerTag"
+            }
+          },
+          {
+            "Key": "Application",
+            "Value": {
+              "Ref": "ApplicationTag"
+            }
+          },
+          {
+            "Key": "Environment",
+            "Value": {
+              "Ref": "EnvironmentTag"
+            }
+          }
+        ],
+        "VpcId": {
+          "Ref": "Vpc"
+        }
+      },
+      "Type": "AWS::EC2::SecurityGroup"
+    },
+    "AppServerSecurityGroup": {
+      "Properties": {
+        "GroupDescription": "Allow HTTP or HTTPS traffic in inbound from the app server Elastic Load Balancer; allow HTTP and HTTPS outbound traffic to the Internet.",
+        "SecurityGroupEgress": [
+          {
+            "CidrIp": "0.0.0.0/0",
+            "FromPort": "80",
+            "IpProtocol": "tcp",
+            "ToPort": "80"
+          },
+          {
+            "CidrIp": "0.0.0.0/0",
+            "FromPort": "443",
+            "IpProtocol": "tcp",
+            "ToPort": "443"
+          }
+        ],
+        "SecurityGroupIngress": [
+          {
+            "FromPort": "80",
+            "IpProtocol": "tcp",
+            "SourceSecurityGroupId": {
+              "Ref": "AppServerElasticLoadBalancerSecurityGroup"
+            },
+            "ToPort": "80"
+          },
+          {
+            "FromPort": "22",
+            "IpProtocol": "tcp",
+            "SourceSecurityGroupId": {
+              "Ref": "BastionHostSecurityGroup"
+            },
+            "ToPort": "22"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "ApplicationTag"
+                  },
+                  {
+                    "Ref": "EnvironmentTag"
+                  },
+                  "AppServer",
+                  "SecurityGroup"
+                ]
+              ]
+            }
+          },
+          {
+            "Key": "LineOfBusiness",
+            "Value": {
+              "Ref": "LineOfBusinessTag"
+            }
+          },
+          {
+            "Key": "Owner",
+            "Value": {
+              "Ref": "OwnerTag"
+            }
+          },
+          {
+            "Key": "Application",
+            "Value": {
+              "Ref": "ApplicationTag"
+            }
+          },
+          {
+            "Key": "Environment",
+            "Value": {
+              "Ref": "EnvironmentTag"
+            }
+          }
+        ],
+        "VpcId": {
+          "Ref": "Vpc"
+        }
+      },
+      "Type": "AWS::EC2::SecurityGroup"
+    },
+    "AppServerToRdsEgressRule": {
+      "Properties": {
+        "DestinationSecurityGroupId": {
+          "Fn::GetAtt": [
+            "RdsSecurityGroup",
+            "GroupId"
+          ]
+        },
+        "FromPort": "3306",
+        "GroupId": {
+          "Fn::GetAtt": [
+            "AppServerSecurityGroup",
+            "GroupId"
+          ]
+        },
+        "IpProtocol": "tcp",
+        "ToPort": "3306"
+      },
+      "Type": "AWS::EC2::SecurityGroupEgress"
+    },
+    "RdsSecurityGroup": {
+      "Properties": {
+        "GroupDescription": "Allow access from the app server tier.",
+        "SecurityGroupEgress": [],
+        "SecurityGroupIngress": [
+          {
+            "FromPort": "3306",
+            "IpProtocol": "tcp",
+            "SourceSecurityGroupId": {
+              "Ref": "AppServerSecurityGroup"
+            },
+            "ToPort": "3306"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "ApplicationTag"
+                  },
+                  {
+                    "Ref": "EnvironmentTag"
+                  },
+                  "Rds",
+                  "SecurityGroup"
+                ]
+              ]
+            }
+          },
+          {
+            "Key": "LineOfBusiness",
+            "Value": {
+              "Ref": "LineOfBusinessTag"
+            }
+          },
+          {
+            "Key": "Owner",
+            "Value": {
+              "Ref": "OwnerTag"
+            }
+          },
+          {
+            "Key": "Application",
+            "Value": {
+              "Ref": "ApplicationTag"
+            }
+          },
+          {
+            "Key": "Environment",
+            "Value": {
+              "Ref": "EnvironmentTag"
+            }
+          }
+        ],
+        "VpcId": {
+          "Ref": "Vpc"
+        }
+      },
+      "Type": "AWS::EC2::SecurityGroup"
+    },
+    "WebServerEgressRule": {
+      "Properties": {
+        "DestinationSecurityGroupId": {
+          "Fn::GetAtt": [
+            "AppServerElasticLoadBalancerSecurityGroup",
+            "GroupId"
+          ]
+        },
+        "FromPort": "80",
+        "GroupId": {
+          "Fn::GetAtt": [
+            "WebServerSecurityGroup",
+            "GroupId"
+          ]
+        },
+        "IpProtocol": "tcp",
+        "ToPort": "80"
+      },
+      "Type": "AWS::EC2::SecurityGroupEgress"
+    },
+    "WebServerElasticLoadBalancerEgressRule": {
+      "Properties": {
+        "DestinationSecurityGroupId": {
+          "Fn::GetAtt": [
+            "WebServerSecurityGroup",
+            "GroupId"
+          ]
+        },
+        "FromPort": "80",
+        "GroupId": {
+          "Fn::GetAtt": [
+            "WebServerElasticLoadBalancerSecurityGroup",
+            "GroupId"
+          ]
+        },
+        "IpProtocol": "tcp",
+        "ToPort": "80"
+      },
+      "Type": "AWS::EC2::SecurityGroupEgress"
+    },
+    "WebServerElasticLoadBalancerSecurityGroup": {
+      "Properties": {
+        "GroupDescription": "Allow HTTP and HTTPS traffic in inbound from a user-specified CIDR block.  An Egress rule will allow outbound traffic to web server instances.",
+        "SecurityGroupEgress": [],
+        "SecurityGroupIngress": [
+          {
+            "CidrIp": {
+              "Ref": "WebServerElasticLoadBalancerAccessFrom"
+            },
+            "FromPort": "80",
+            "IpProtocol": "tcp",
+            "ToPort": "80"
+          },
+          {
+            "CidrIp": {
+              "Ref": "WebServerElasticLoadBalancerAccessFrom"
+            },
+            "FromPort": "443",
+            "IpProtocol": "tcp",
+            "ToPort": "443"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "ApplicationTag"
+                  },
+                  {
+                    "Ref": "EnvironmentTag"
+                  },
+                  "WebServerElasticLoadBalancer",
+                  "SecurityGroup"
+                ]
+              ]
+            }
+          },
+          {
+            "Key": "LineOfBusiness",
+            "Value": {
+              "Ref": "LineOfBusinessTag"
+            }
+          },
+          {
+            "Key": "Owner",
+            "Value": {
+              "Ref": "OwnerTag"
+            }
+          },
+          {
+            "Key": "Application",
+            "Value": {
+              "Ref": "ApplicationTag"
+            }
+          },
+          {
+            "Key": "Environment",
+            "Value": {
+              "Ref": "EnvironmentTag"
+            }
+          }
+        ],
+        "VpcId": {
+          "Ref": "Vpc"
+        }
+      },
+      "Type": "AWS::EC2::SecurityGroup"
+    },
+    "WebServerSecurityGroup": {
+      "Properties": {
+        "GroupDescription": "Allow HTTP or HTTPS traffic in inbound from the web server Elastic Load Balancer; allow outbound traffic to the Internet.",
+        "SecurityGroupEgress": [
+          {
+            "CidrIp": "0.0.0.0/0",
+            "FromPort": "80",
+            "IpProtocol": "tcp",
+            "ToPort": "80"
+          },
+          {
+            "CidrIp": "0.0.0.0/0",
+            "FromPort": "443",
+            "IpProtocol": "tcp",
+            "ToPort": "443"
+          }
+        ],
+        "SecurityGroupIngress": [
+          {
+            "FromPort": "80",
+            "IpProtocol": "tcp",
+            "SourceSecurityGroupId": {
+              "Ref": "WebServerElasticLoadBalancerSecurityGroup"
+            },
+            "ToPort": "80"
+          },
+          {
+            "FromPort": "22",
+            "IpProtocol": "tcp",
+            "SourceSecurityGroupId": {
+              "Ref": "BastionHostSecurityGroup"
+            },
+            "ToPort": "22"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "ApplicationTag"
+                  },
+                  {
+                    "Ref": "EnvironmentTag"
+                  },
+                  "WebServer",
+                  "SecurityGroup"
+                ]
+              ]
+            }
+          },
+          {
+            "Key": "LineOfBusiness",
+            "Value": {
+              "Ref": "LineOfBusinessTag"
+            }
+          },
+          {
+            "Key": "Owner",
+            "Value": {
+              "Ref": "OwnerTag"
+            }
+          },
+          {
+            "Key": "Application",
+            "Value": {
+              "Ref": "ApplicationTag"
+            }
+          },
+          {
+            "Key": "Environment",
+            "Value": {
+              "Ref": "EnvironmentTag"
+            }
+          }
+        ],
+        "VpcId": {
+          "Ref": "Vpc"
+        }
+      },
+      "Type": "AWS::EC2::SecurityGroup"
+    }
+  }
+}

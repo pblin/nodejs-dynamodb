@@ -1,0 +1,125 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "This is a sample, non-production-ready template that describes an IAM role and an IAM InstanceProfile for a sample application's app server tier.",
+  "Metadata": {
+    "AWS::CloudFormation::Interface": {
+      "ParameterGroups": [
+        {
+          "Label": {
+            "default": "Tags configuration"
+          },
+          "Parameters": [
+            "ApplicationTag",
+            "EnvironmentTag"
+          ]
+        }
+      ],
+      "ParameterLabels": {
+        "ApplicationTag": {
+          "default": "Which value should be assigned to the Application tag?"
+        },
+        "EnvironmentTag": {
+          "default": "Which value should be assigned to the Environment tag?"
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "AppServerInstanceProfile": {
+      "Description": "IAM InstanceProfile created by this stack.",
+      "Value": {
+        "Ref": "AppServerInstanceProfile"
+      }
+    },
+    "AppServerRole": {
+      "Description": "IAM Role created by this stack.",
+      "Value": {
+        "Ref": "AppServerRole"
+      }
+    }
+  },
+  "Parameters": {
+    "ApplicationTag": {
+      "Default": "sample-app",
+      "Description": "Value for the application tag.",
+      "Type": "String"
+    },
+    "EnvironmentTag": {
+      "AllowedValues": [
+        "dev",
+        "qa",
+        "prod"
+      ],
+      "ConstraintDescription": "must be a valid environment name.",
+      "Default": "dev",
+      "Description": "Value for the environment tag.",
+      "Type": "String"
+    }
+  },
+  "Resources": {
+    "AppServerInstanceProfile": {
+      "Properties": {
+        "Path": "/",
+        "Roles": [
+          {
+            "Ref": "AppServerRole"
+          }
+        ]
+      },
+      "Type": "AWS::IAM::InstanceProfile"
+    },
+    "AppServerRole": {
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": [
+                "sts:AssumeRole"
+              ],
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "ec2.amazonaws.com"
+                ]
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "Path": "/",
+        "Policies": [
+          {
+            "PolicyDocument": {
+              "Statement": [
+                {
+                  "Action": [
+                    "ec2:DescribeRegions"
+                  ],
+                  "Effect": "Allow",
+                  "Resource": "*"
+                }
+              ],
+              "Version": "2012-10-17"
+            },
+            "PolicyName": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "ApplicationTag"
+                  },
+                  {
+                    "Ref": "EnvironmentTag"
+                  },
+                  "AppServerRole",
+                  "IamPolicy"
+                ]
+              ]
+            }
+          }
+        ]
+      },
+      "Type": "AWS::IAM::Role"
+    }
+  }
+}

@@ -1,0 +1,954 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Conditions": {
+    "IsStandaloneStack": {
+      "Fn::Equals": [
+        {
+          "Ref": "AppServerSecurityGroup"
+        },
+        ""
+      ]
+    },
+    "KeyNameSpecified": {
+      "Fn::Not": [
+        {
+          "Fn::Equals": [
+            {
+              "Ref": "KeyName"
+            },
+            ""
+          ]
+        }
+      ]
+    }
+  },
+  "Description": "This is a sample, non-production-ready template that creates a fleet of non-AutoScaling EC2 instances for an app server tier.  A sample application will be set up on instances.  This sample template will also create a sample database configuration file with values based on user input.",
+  "Metadata": {
+    "AWS::CloudFormation::Interface": {
+      "ParameterGroups": [
+        {
+          "Label": {
+            "default": "VPC and subnets selection"
+          },
+          "Parameters": [
+            "Vpc",
+            "ApplicationInstancesSubnets"
+          ]
+        },
+        {
+          "Label": {
+            "default": "EC2 instances configuration"
+          },
+          "Parameters": [
+            "Ami",
+            "InstanceType",
+            "AppServerInstanceProfile",
+            "KeyName"
+          ]
+        },
+        {
+          "Label": {
+            "default": "EC2 instances Security Group configuration"
+          },
+          "Parameters": [
+            "AppServerSecurityGroup",
+            "AppServerAccessFrom"
+          ]
+        },
+        {
+          "Label": {
+            "default": "VPC Standalone Security Group TCP port configuration for the app server tier"
+          },
+          "Parameters": [
+            "AppServerPort",
+            "AppServerAdminPort"
+          ]
+        },
+        {
+          "Label": {
+            "default": "Application configuration"
+          },
+          "Parameters": [
+            "DbName",
+            "DbUser",
+            "DbPassword",
+            "DbEndpoint"
+          ]
+        },
+        {
+          "Label": {
+            "default": "Tags configuration"
+          },
+          "Parameters": [
+            "ApplicationTag",
+            "EnvironmentTag",
+            "LineOfBusinessTag",
+            "OwnerTag"
+          ]
+        }
+      ],
+      "ParameterLabels": {
+        "Ami": {
+          "default": "Which AMI should be used?"
+        },
+        "AppServerAccessFrom": {
+          "default": "If this is a standalone stack instead, which CIDR block is allowed to connect to the app server?"
+        },
+        "AppServerAdminPort": {
+          "default": "Which TCP port number should be used to manage app servers?"
+        },
+        "AppServerInstanceProfile": {
+          "default": "Which instance profile should be used for the app server fleet?"
+        },
+        "AppServerPort": {
+          "default": "Which TCP port number will be used by the app server tier?"
+        },
+        "AppServerSecurityGroup": {
+          "default": "If this is not a standalone stack, please specify the existing AppServerSecurityGroup to use."
+        },
+        "ApplicationInstancesSubnets": {
+          "default": "Which 2 existing private subnets should be used for application instances?"
+        },
+        "ApplicationTag": {
+          "default": "Which value should be assigned to the Application tag?"
+        },
+        "DbEndpoint": {
+          "default": "What is the database endpoint?"
+        },
+        "DbName": {
+          "default": "What is the database name?"
+        },
+        "DbPassword": {
+          "default": "What is the database admin password?"
+        },
+        "DbUser": {
+          "default": "What is the database admin user?"
+        },
+        "EnvironmentTag": {
+          "default": "Which value should be assigned to the Environment tag?"
+        },
+        "InstanceType": {
+          "default": "Which EC2 instance type should be used for application instances?"
+        },
+        "KeyName": {
+          "default": "Optional: which key pair should be used to connect to instances?"
+        },
+        "LineOfBusinessTag": {
+          "default": "Which value should be assigned to the LineOfBusiness tag?"
+        },
+        "OwnerTag": {
+          "default": "Which value should be assigned to the Owner tag?"
+        },
+        "Vpc": {
+          "default": "Which existing VPC should be used?"
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "Instance1": {
+      "Description": "ID of instance 1.",
+      "Value": {
+        "Ref": "Instance1"
+      }
+    },
+    "Instance1PrivateDnsName": {
+      "Description": "Private DNS name of Instance1.",
+      "Value": {
+        "Fn::GetAtt": [
+          "Instance1",
+          "PrivateDnsName"
+        ]
+      }
+    },
+    "Instance1PrivateIp": {
+      "Description": "Private IP address of Instance1.",
+      "Value": {
+        "Fn::GetAtt": [
+          "Instance1",
+          "PrivateIp"
+        ]
+      }
+    },
+    "Instance2": {
+      "Description": "ID of instance 2.",
+      "Value": {
+        "Ref": "Instance2"
+      }
+    },
+    "Instance2PrivateDnsName": {
+      "Description": "Private DNS name of Instance2.",
+      "Value": {
+        "Fn::GetAtt": [
+          "Instance2",
+          "PrivateDnsName"
+        ]
+      }
+    },
+    "Instance2PrivateIp": {
+      "Description": "Private IP address of Instance2.",
+      "Value": {
+        "Fn::GetAtt": [
+          "Instance2",
+          "PrivateIp"
+        ]
+      }
+    },
+    "InstancesDnsNames": {
+      "Description": "DNS names, delimited by a comma, of EC2 instances created by this stack.",
+      "Value": {
+        "Fn::Join": [
+          ",",
+          [
+            {
+              "Fn::GetAtt": [
+                "Instance1",
+                "PrivateDnsName"
+              ]
+            },
+            {
+              "Fn::GetAtt": [
+                "Instance2",
+                "PrivateDnsName"
+              ]
+            }
+          ]
+        ]
+      }
+    },
+    "InstancesPrivateIps": {
+      "Description": "Private IP addresses, delimited by a comma, of EC2 instances created by this stack.",
+      "Value": {
+        "Fn::Join": [
+          ",",
+          [
+            {
+              "Fn::GetAtt": [
+                "Instance1",
+                "PrivateIp"
+              ]
+            },
+            {
+              "Fn::GetAtt": [
+                "Instance2",
+                "PrivateIp"
+              ]
+            }
+          ]
+        ]
+      }
+    },
+    "InstancesToAttach": {
+      "Description": "ID of EC2 instances, created by this stack, delimited by a comma.",
+      "Value": {
+        "Fn::Join": [
+          ",",
+          [
+            {
+              "Ref": "Instance1"
+            },
+            {
+              "Ref": "Instance2"
+            }
+          ]
+        ]
+      }
+    }
+  },
+  "Parameters": {
+    "Ami": {
+      "Default": "ami-f5f41398",
+      "Description": "AMI to use for the application instance tier.  The value for this parameter defaults to the following AMI: Amazon Linux AMI 2016.03.1 (HVM), SSD Volume Type, in the us-east-1 region.",
+      "Type": "String"
+    },
+    "AppServerAccessFrom": {
+      "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+      "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x.",
+      "Default": "0.0.0.0/0",
+      "Description": "The CIDR block allowed to access instances in the app server tier via SSH and HTTP.  If this is not a standalone stack, the value for this parameter will be ignored.",
+      "MaxLength": "18",
+      "MinLength": "9",
+      "Type": "String"
+    },
+    "AppServerAdminPort": {
+      "AllowedValues": [
+        "22",
+        "3389"
+      ],
+      "ConstraintDescription": "must be a valid selection.",
+      "Default": "22",
+      "Description": "Please specify the TCP port that can be used to connect to manage app server instances.  If this is not a standalone stack, the value for this parameter will be ignored.",
+      "Type": "String"
+    },
+    "AppServerInstanceProfile": {
+      "Description": "Existing instance profile to use for the app server.  The value for this parameter can be found in the Outputs section of the stack that created the instance profile for the app server tier of the application.",
+      "Type": "String"
+    },
+    "AppServerPort": {
+      "AllowedValues": [
+        "443",
+        "80",
+        "8080",
+        "8443"
+      ],
+      "ConstraintDescription": "must be a valid selection.",
+      "Default": "80",
+      "Description": "Please specify the TCP port that will be used by this tier.  If this is not a standalone stack, the value for this parameter will be ignored.",
+      "Type": "String"
+    },
+    "AppServerSecurityGroup": {
+      "Default": "",
+      "Description": "If this is not a standalone stack, please specify the physical ID of the existing AppServerSecurityGroup to use.  The value for this parameter can be found in the Outputs section of the stack that created Security Groups for the application.",
+      "Type": "String"
+    },
+    "ApplicationInstancesSubnets": {
+      "Description": "Please specify two existing subnets where to place the EC2 instances running the application.",
+      "Type": "List<AWS::EC2::Subnet::Id>"
+    },
+    "ApplicationTag": {
+      "Default": "sample-app",
+      "Description": "Value for the application tag.",
+      "Type": "String"
+    },
+    "DbEndpoint": {
+      "Default": "127.0.0.1",
+      "Description": "Endpoint for the existing RDS instance.  This value should be available in the Outputs section of the stack that created the relevant RDS instance.  Defaults to a sample 127.0.0.1 endpoint.",
+      "Type": "String"
+    },
+    "DbName": {
+      "AllowedPattern": "[a-zA-Z](?!.*--)[a-zA-Z0-9-]*[a-zA-Z0-9]",
+      "ConstraintDescription": "must begin with a letter and contain only alphanumeric characters or non-adjacent hyphens; it must not end with a hyphen.",
+      "Default": "sampledb",
+      "Description": "Database name.",
+      "MaxLength": "63",
+      "MinLength": "1",
+      "Type": "String"
+    },
+    "DbPassword": {
+      "AllowedPattern": "[a-zA-Z0-9]*",
+      "ConstraintDescription": "must contain only alphanumeric characters; minimum length: 8.",
+      "Description": "Database admin password.",
+      "MaxLength": "41",
+      "MinLength": "8",
+      "NoEcho": "true",
+      "Type": "String"
+    },
+    "DbUser": {
+      "AllowedPattern": "[a-zA-Z][a-zA-Z0-9]*",
+      "ConstraintDescription": "must begin with a letter and contain only alphanumeric characters.",
+      "Description": "Database admin user.",
+      "MaxLength": "16",
+      "MinLength": "1",
+      "NoEcho": "true",
+      "Type": "String"
+    },
+    "EnvironmentTag": {
+      "AllowedValues": [
+        "dev",
+        "qa",
+        "prod"
+      ],
+      "ConstraintDescription": "must be a valid environment name.",
+      "Default": "dev",
+      "Description": "Value for the environment tag.",
+      "Type": "String"
+    },
+    "InstanceType": {
+      "AllowedValues": [
+        "t2.micro",
+        "t2.small",
+        "t2.medium",
+        "t2.large",
+        "m4.large",
+        "m4.xlarge",
+        "m4.2xlarge",
+        "m4.4xlarge",
+        "m4.10xlarge",
+        "m3.medium",
+        "m3.large",
+        "m3.xlarge",
+        "m3.2xlarge",
+        "c4.large",
+        "c4.xlarge",
+        "c4.2xlarge",
+        "c4.4xlarge",
+        "c4.8xlarge",
+        "c3.large",
+        "c3.xlarge",
+        "c3.2xlarge",
+        "c3.4xlarge",
+        "c3.8xlarge",
+        "r3.large",
+        "r3.xlarge",
+        "r3.2xlarge",
+        "r3.4xlarge",
+        "r3.8xlarge"
+      ],
+      "ConstraintDescription": "must be a valid EC2 instance type.",
+      "Default": "t2.micro",
+      "Description": "The EC2 instance type to use for application instances.",
+      "Type": "String"
+    },
+    "KeyName": {
+      "Default": "",
+      "Description": "If you need to connect to instances, specify the name of the existing EC2 Key Pair name to use.",
+      "Type": "String"
+    },
+    "LineOfBusinessTag": {
+      "Default": "sample-line-of-business",
+      "Description": "Value for the line of business tag.",
+      "Type": "String"
+    },
+    "OwnerTag": {
+      "Default": "sample-owner",
+      "Description": "Value for the owner tag.",
+      "Type": "String"
+    },
+    "Vpc": {
+      "Description": "Please specify the physical ID of the existing VPC to use.",
+      "Type": "AWS::EC2::VPC::Id"
+    }
+  },
+  "Resources": {
+    "Instance1": {
+      "Metadata": {
+        "AWS::CloudFormation::Init": {
+          "InitialSetUp": {
+            "packages": {
+              "yum": {
+                "httpd": [
+                  ""
+                ],
+                "mod_ssl": [
+                  ""
+                ]
+              }
+            },
+            "services": {
+              "sysvinit": {
+                "httpd": {
+                  "enabled": "true",
+                  "ensureRunning": "true"
+                }
+              }
+            }
+          },
+          "SampleConfigSetUp": {
+            "files": {
+              "/sampleapp/config/app-config.yaml": {
+                "content": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "db_name    : ",
+                      {
+                        "Ref": "DbName"
+                      },
+                      "\n",
+                      "db_user    : ",
+                      {
+                        "Ref": "DbUser"
+                      },
+                      "\n",
+                      "db_pass    : ",
+                      {
+                        "Ref": "DbPassword"
+                      },
+                      "\n",
+                      "db_endpoint: ",
+                      {
+                        "Ref": "DbEndpoint"
+                      },
+                      "\n"
+                    ]
+                  ]
+                },
+                "group": "apache",
+                "mode": "000640",
+                "owner": "root"
+              }
+            }
+          },
+          "SampleContentSetUp": {
+            "files": {
+              "/var/www/html/index.html": {
+                "content": {
+                  "Fn::Join": [
+                    "\n",
+                    [
+                      "<html>",
+                      "  <head>",
+                      "    <title>This is a sample HTML page.</title>",
+                      "  </head>",
+                      "  <body>",
+                      "    <h1>This is a sample HTML page.</h1>",
+                      "  </body>",
+                      "</html>",
+                      ""
+                    ]
+                  ]
+                },
+                "group": "root",
+                "mode": "000644",
+                "owner": "root"
+              }
+            }
+          },
+          "configSets": {
+            "SetUp": [
+              "InitialSetUp",
+              "SampleConfigSetUp",
+              "SampleContentSetUp"
+            ]
+          }
+        }
+      },
+      "Properties": {
+        "IamInstanceProfile": {
+          "Ref": "AppServerInstanceProfile"
+        },
+        "ImageId": {
+          "Ref": "Ami"
+        },
+        "InstanceType": {
+          "Ref": "InstanceType"
+        },
+        "KeyName": {
+          "Fn::If": [
+            "KeyNameSpecified",
+            {
+              "Ref": "KeyName"
+            },
+            {
+              "Ref": "AWS::NoValue"
+            }
+          ]
+        },
+        "SecurityGroupIds": [
+          {
+            "Fn::If": [
+              "IsStandaloneStack",
+              {
+                "Ref": "StandaloneAppServerSecurityGroup"
+              },
+              {
+                "Ref": "AppServerSecurityGroup"
+              }
+            ]
+          }
+        ],
+        "SubnetId": {
+          "Fn::Select": [
+            "0",
+            {
+              "Ref": "ApplicationInstancesSubnets"
+            }
+          ]
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "ApplicationTag"
+                  },
+                  {
+                    "Ref": "EnvironmentTag"
+                  },
+                  "AppServer",
+                  "Instance1"
+                ]
+              ]
+            }
+          },
+          {
+            "Key": "LineOfBusiness",
+            "Value": {
+              "Ref": "LineOfBusinessTag"
+            }
+          },
+          {
+            "Key": "Owner",
+            "Value": {
+              "Ref": "OwnerTag"
+            }
+          },
+          {
+            "Key": "Application",
+            "Value": {
+              "Ref": "ApplicationTag"
+            }
+          },
+          {
+            "Key": "Environment",
+            "Value": {
+              "Ref": "EnvironmentTag"
+            }
+          }
+        ],
+        "UserData": {
+          "Fn::Base64": {
+            "Fn::Join": [
+              "\n",
+              [
+                "#!/bin/bash -ex",
+                "if ! uname -a | grep -q 'amzn'; then",
+                "    cd /root",
+                "    curl -LO https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.zip",
+                "    if [ ! `which easy_install` ]; then",
+                "        yum install python-setuptools -y",
+                "    fi",
+                "    easy_install aws-cfn-bootstrap-latest.zip",
+                "    cfn_init_path='/usr/bin'",
+                "else",
+                "    yum update aws-cfn-bootstrap -y",
+                "    cfn_init_path='/opt/aws/bin'",
+                "fi",
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "${cfn_init_path}/cfn-init",
+                      " -v",
+                      " --stack ",
+                      {
+                        "Ref": "AWS::StackName"
+                      },
+                      " --resource Instance1",
+                      " --configsets SetUp",
+                      " --region ",
+                      {
+                        "Ref": "AWS::Region"
+                      }
+                    ]
+                  ]
+                }
+              ]
+            ]
+          }
+        }
+      },
+      "Type": "AWS::EC2::Instance"
+    },
+    "Instance2": {
+      "Metadata": {
+        "AWS::CloudFormation::Init": {
+          "InitialSetUp": {
+            "packages": {
+              "yum": {
+                "httpd": [
+                  ""
+                ],
+                "mod_ssl": [
+                  ""
+                ]
+              }
+            },
+            "services": {
+              "sysvinit": {
+                "httpd": {
+                  "enabled": "true",
+                  "ensureRunning": "true"
+                }
+              }
+            }
+          },
+          "SampleConfigSetUp": {
+            "files": {
+              "/sampleapp/config/app-config.yaml": {
+                "content": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "db_name    : ",
+                      {
+                        "Ref": "DbName"
+                      },
+                      "\n",
+                      "db_user    : ",
+                      {
+                        "Ref": "DbUser"
+                      },
+                      "\n",
+                      "db_pass    : ",
+                      {
+                        "Ref": "DbPassword"
+                      },
+                      "\n",
+                      "db_endpoint: ",
+                      {
+                        "Ref": "DbEndpoint"
+                      },
+                      "\n"
+                    ]
+                  ]
+                },
+                "group": "apache",
+                "mode": "000640",
+                "owner": "root"
+              }
+            }
+          },
+          "SampleContentSetUp": {
+            "files": {
+              "/var/www/html/index.html": {
+                "content": {
+                  "Fn::Join": [
+                    "\n",
+                    [
+                      "<html>",
+                      "  <head>",
+                      "    <title>This is a sample HTML page.</title>",
+                      "  </head>",
+                      "  <body>",
+                      "    <h1>This is a sample HTML page.</h1>",
+                      "  </body>",
+                      "</html>",
+                      ""
+                    ]
+                  ]
+                },
+                "group": "root",
+                "mode": "000644",
+                "owner": "root"
+              }
+            }
+          },
+          "configSets": {
+            "SetUp": [
+              "InitialSetUp",
+              "SampleConfigSetUp",
+              "SampleContentSetUp"
+            ]
+          }
+        }
+      },
+      "Properties": {
+        "IamInstanceProfile": {
+          "Ref": "AppServerInstanceProfile"
+        },
+        "ImageId": {
+          "Ref": "Ami"
+        },
+        "InstanceType": {
+          "Ref": "InstanceType"
+        },
+        "KeyName": {
+          "Fn::If": [
+            "KeyNameSpecified",
+            {
+              "Ref": "KeyName"
+            },
+            {
+              "Ref": "AWS::NoValue"
+            }
+          ]
+        },
+        "SecurityGroupIds": [
+          {
+            "Fn::If": [
+              "IsStandaloneStack",
+              {
+                "Ref": "StandaloneAppServerSecurityGroup"
+              },
+              {
+                "Ref": "AppServerSecurityGroup"
+              }
+            ]
+          }
+        ],
+        "SubnetId": {
+          "Fn::Select": [
+            "1",
+            {
+              "Ref": "ApplicationInstancesSubnets"
+            }
+          ]
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "ApplicationTag"
+                  },
+                  {
+                    "Ref": "EnvironmentTag"
+                  },
+                  "AppServer",
+                  "Instance2"
+                ]
+              ]
+            }
+          },
+          {
+            "Key": "LineOfBusiness",
+            "Value": {
+              "Ref": "LineOfBusinessTag"
+            }
+          },
+          {
+            "Key": "Owner",
+            "Value": {
+              "Ref": "OwnerTag"
+            }
+          },
+          {
+            "Key": "Application",
+            "Value": {
+              "Ref": "ApplicationTag"
+            }
+          },
+          {
+            "Key": "Environment",
+            "Value": {
+              "Ref": "EnvironmentTag"
+            }
+          }
+        ],
+        "UserData": {
+          "Fn::Base64": {
+            "Fn::Join": [
+              "\n",
+              [
+                "#!/bin/bash -ex",
+                "if ! uname -a | grep -q 'amzn'; then",
+                "    cd /root",
+                "    curl -LO https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.zip",
+                "    if [ ! `which easy_install` ]; then",
+                "        yum install python-setuptools -y",
+                "    fi",
+                "    easy_install aws-cfn-bootstrap-latest.zip",
+                "    cfn_init_path='/usr/bin'",
+                "else",
+                "    yum update aws-cfn-bootstrap -y",
+                "    cfn_init_path='/opt/aws/bin'",
+                "fi",
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "${cfn_init_path}/cfn-init",
+                      " -v",
+                      " --stack ",
+                      {
+                        "Ref": "AWS::StackName"
+                      },
+                      " --resource Instance2",
+                      " --configsets SetUp",
+                      " --region ",
+                      {
+                        "Ref": "AWS::Region"
+                      }
+                    ]
+                  ]
+                }
+              ]
+            ]
+          }
+        }
+      },
+      "Type": "AWS::EC2::Instance"
+    },
+    "StandaloneAppServerSecurityGroup": {
+      "Condition": "IsStandaloneStack",
+      "Properties": {
+        "GroupDescription": "Allow access from a user specified CIDR block.",
+        "SecurityGroupEgress": [
+          {
+            "CidrIp": "0.0.0.0/0",
+            "FromPort": "80",
+            "IpProtocol": "tcp",
+            "ToPort": "80"
+          },
+          {
+            "CidrIp": "0.0.0.0/0",
+            "FromPort": "443",
+            "IpProtocol": "tcp",
+            "ToPort": "443"
+          }
+        ],
+        "SecurityGroupIngress": [
+          {
+            "CidrIp": {
+              "Ref": "AppServerAccessFrom"
+            },
+            "FromPort": {
+              "Ref": "AppServerAdminPort"
+            },
+            "IpProtocol": "tcp",
+            "ToPort": {
+              "Ref": "AppServerAdminPort"
+            }
+          },
+          {
+            "CidrIp": {
+              "Ref": "AppServerAccessFrom"
+            },
+            "FromPort": {
+              "Ref": "AppServerPort"
+            },
+            "IpProtocol": "tcp",
+            "ToPort": {
+              "Ref": "AppServerPort"
+            }
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "ApplicationTag"
+                  },
+                  {
+                    "Ref": "EnvironmentTag"
+                  },
+                  "Rds",
+                  "SecurityGroup"
+                ]
+              ]
+            }
+          },
+          {
+            "Key": "LineOfBusiness",
+            "Value": {
+              "Ref": "LineOfBusinessTag"
+            }
+          },
+          {
+            "Key": "Owner",
+            "Value": {
+              "Ref": "OwnerTag"
+            }
+          },
+          {
+            "Key": "Application",
+            "Value": {
+              "Ref": "ApplicationTag"
+            }
+          },
+          {
+            "Key": "Environment",
+            "Value": {
+              "Ref": "EnvironmentTag"
+            }
+          }
+        ],
+        "VpcId": {
+          "Ref": "Vpc"
+        }
+      },
+      "Type": "AWS::EC2::SecurityGroup"
+    }
+  }
+}

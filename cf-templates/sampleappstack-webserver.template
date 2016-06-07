@@ -1,0 +1,1023 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Conditions": {
+    "IsAppServerEndpointPortHttps": {
+      "Fn::Or": [
+        {
+          "Fn::Equals": [
+            {
+              "Ref": "AppServerEndpointPort"
+            },
+            "443"
+          ]
+        },
+        {
+          "Fn::Equals": [
+            {
+              "Ref": "AppServerEndpointPort"
+            },
+            "8443"
+          ]
+        }
+      ]
+    },
+    "IsStandaloneStack": {
+      "Fn::Equals": [
+        {
+          "Ref": "WebServerSecurityGroup"
+        },
+        ""
+      ]
+    },
+    "KeyNameSpecified": {
+      "Fn::Not": [
+        {
+          "Fn::Equals": [
+            {
+              "Ref": "KeyName"
+            },
+            ""
+          ]
+        }
+      ]
+    },
+    "SetRedirectHttpToHttps": {
+      "Fn::Equals": [
+        {
+          "Ref": "RedirectHttpToHttps"
+        },
+        "yes"
+      ]
+    }
+  },
+  "Description": "This is a sample, non-production-ready template that creates a fleet of non-AutoScaling EC2 instances for a web server tier.  A sample reverse proxy will be set up on instances.",
+  "Metadata": {
+    "AWS::CloudFormation::Interface": {
+      "ParameterGroups": [
+        {
+          "Label": {
+            "default": "VPC and subnets selection"
+          },
+          "Parameters": [
+            "Vpc",
+            "ApplicationInstancesSubnets"
+          ]
+        },
+        {
+          "Label": {
+            "default": "EC2 instances configuration"
+          },
+          "Parameters": [
+            "Ami",
+            "InstanceType",
+            "WebServerInstanceProfile",
+            "KeyName"
+          ]
+        },
+        {
+          "Label": {
+            "default": "EC2 instances Security Group configuration"
+          },
+          "Parameters": [
+            "WebServerSecurityGroup",
+            "WebServerAccessFrom"
+          ]
+        },
+        {
+          "Label": {
+            "default": "VPC Standalone Security Group TCP port configuration for the web server tier"
+          },
+          "Parameters": [
+            "WebServerPort",
+            "WebServerAdminPort"
+          ]
+        },
+        {
+          "Label": {
+            "default": "Web server configuration"
+          },
+          "Parameters": [
+            "AppServerEndpoint",
+            "AppServerEndpointPort",
+            "RedirectHttpToHttps"
+          ]
+        },
+        {
+          "Label": {
+            "default": "Tags configuration"
+          },
+          "Parameters": [
+            "ApplicationTag",
+            "EnvironmentTag",
+            "LineOfBusinessTag",
+            "OwnerTag"
+          ]
+        }
+      ],
+      "ParameterLabels": {
+        "Ami": {
+          "default": "Which AMI should be used?"
+        },
+        "AppServerEndpoint": {
+          "default": "What is the app server endpoint?"
+        },
+        "AppServerEndpointPort": {
+          "default": "What is the app server endpoint port?"
+        },
+        "ApplicationInstancesSubnets": {
+          "default": "Which 2 existing private subnets should be used for application instances?"
+        },
+        "ApplicationTag": {
+          "default": "Which value should be assigned to the Application tag?"
+        },
+        "EnvironmentTag": {
+          "default": "Which value should be assigned to the Environment tag?"
+        },
+        "InstanceType": {
+          "default": "Which EC2 instance type should be used for application instances?"
+        },
+        "KeyName": {
+          "default": "Optional: which key pair should be used to connect to instances?"
+        },
+        "LineOfBusinessTag": {
+          "default": "Which value should be assigned to the LineOfBusiness tag?"
+        },
+        "OwnerTag": {
+          "default": "Which value should be assigned to the Owner tag?"
+        },
+        "RedirectHttpToHttps": {
+          "default": "Redirect HTTP requests to HTTPS?"
+        },
+        "Vpc": {
+          "default": "Which existing VPC should be used?"
+        },
+        "WebServerAccessFrom": {
+          "default": "If this is a standalone stack instead, which CIDR block is allowed to connect to the web server?"
+        },
+        "WebServerAdminPort": {
+          "default": "Which TCP port number should be used to manage web servers?"
+        },
+        "WebServerInstanceProfile": {
+          "default": "Which instance profile should be used for the web server fleet?"
+        },
+        "WebServerPort": {
+          "default": "Which TCP port number will be used by the web server tier?"
+        },
+        "WebServerSecurityGroup": {
+          "default": "If this is not a standalone stack, please specify the existing WebServerSecurityGroup to use."
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "Instance1": {
+      "Description": "ID of instance 1.",
+      "Value": {
+        "Ref": "Instance1"
+      }
+    },
+    "Instance1PrivateDnsName": {
+      "Description": "Private DNS name of Instance1.",
+      "Value": {
+        "Fn::GetAtt": [
+          "Instance1",
+          "PrivateDnsName"
+        ]
+      }
+    },
+    "Instance1PrivateIp": {
+      "Description": "Private IP address of Instance1.",
+      "Value": {
+        "Fn::GetAtt": [
+          "Instance1",
+          "PrivateIp"
+        ]
+      }
+    },
+    "Instance2": {
+      "Description": "ID of instance 2.",
+      "Value": {
+        "Ref": "Instance2"
+      }
+    },
+    "Instance2PrivateDnsName": {
+      "Description": "Private DNS name of Instance2.",
+      "Value": {
+        "Fn::GetAtt": [
+          "Instance2",
+          "PrivateDnsName"
+        ]
+      }
+    },
+    "Instance2PrivateIp": {
+      "Description": "Private IP address of Instance2.",
+      "Value": {
+        "Fn::GetAtt": [
+          "Instance2",
+          "PrivateIp"
+        ]
+      }
+    },
+    "InstancesDnsNames": {
+      "Description": "DNS names, delimited by a comma, of EC2 instances created by this stack.",
+      "Value": {
+        "Fn::Join": [
+          ",",
+          [
+            {
+              "Fn::GetAtt": [
+                "Instance1",
+                "PrivateDnsName"
+              ]
+            },
+            {
+              "Fn::GetAtt": [
+                "Instance2",
+                "PrivateDnsName"
+              ]
+            }
+          ]
+        ]
+      }
+    },
+    "InstancesPrivateIps": {
+      "Description": "Private IP addresses, delimited by a comma, of EC2 instances created by this stack.",
+      "Value": {
+        "Fn::Join": [
+          ",",
+          [
+            {
+              "Fn::GetAtt": [
+                "Instance1",
+                "PrivateIp"
+              ]
+            },
+            {
+              "Fn::GetAtt": [
+                "Instance2",
+                "PrivateIp"
+              ]
+            }
+          ]
+        ]
+      }
+    },
+    "InstancesToAttach": {
+      "Description": "ID of EC2 instances, created by this stack, delimited by a comma.",
+      "Value": {
+        "Fn::Join": [
+          ",",
+          [
+            {
+              "Ref": "Instance1"
+            },
+            {
+              "Ref": "Instance2"
+            }
+          ]
+        ]
+      }
+    }
+  },
+  "Parameters": {
+    "Ami": {
+      "Default": "ami-f5f41398",
+      "Description": "AMI to use for the application instance tier.  The value for this parameter defaults to the following AMI: Amazon Linux AMI 2016.03.1 (HVM), SSD Volume Type, in the us-east-1 region.",
+      "Type": "String"
+    },
+    "AppServerEndpoint": {
+      "Default": "127.0.0.1",
+      "Description": "Endpoint for the existing app server tier.  This value should be available in the Outputs section of the stack that created the relevant Elastic Load Balancer for the tier.  Defaults to a sample 127.0.0.1 endpoint.",
+      "Type": "String"
+    },
+    "AppServerEndpointPort": {
+      "AllowedValues": [
+        "443",
+        "80",
+        "8080",
+        "8443"
+      ],
+      "ConstraintDescription": "must be a valid selection.",
+      "Default": "80",
+      "Description": "Please specify the TCP port that will be used by the app server endpoint.",
+      "Type": "String"
+    },
+    "ApplicationInstancesSubnets": {
+      "Description": "Please specify two existing subnets where to place the EC2 instances running the application.",
+      "Type": "List<AWS::EC2::Subnet::Id>"
+    },
+    "ApplicationTag": {
+      "Default": "sample-app",
+      "Description": "Value for the application tag.",
+      "Type": "String"
+    },
+    "EnvironmentTag": {
+      "AllowedValues": [
+        "dev",
+        "qa",
+        "prod"
+      ],
+      "ConstraintDescription": "must be a valid environment name.",
+      "Default": "dev",
+      "Description": "Value for the environment tag.",
+      "Type": "String"
+    },
+    "InstanceType": {
+      "AllowedValues": [
+        "t2.micro",
+        "t2.small",
+        "t2.medium",
+        "t2.large",
+        "m4.large",
+        "m4.xlarge",
+        "m4.2xlarge",
+        "m4.4xlarge",
+        "m4.10xlarge",
+        "m3.medium",
+        "m3.large",
+        "m3.xlarge",
+        "m3.2xlarge",
+        "c4.large",
+        "c4.xlarge",
+        "c4.2xlarge",
+        "c4.4xlarge",
+        "c4.8xlarge",
+        "c3.large",
+        "c3.xlarge",
+        "c3.2xlarge",
+        "c3.4xlarge",
+        "c3.8xlarge",
+        "r3.large",
+        "r3.xlarge",
+        "r3.2xlarge",
+        "r3.4xlarge",
+        "r3.8xlarge"
+      ],
+      "ConstraintDescription": "must be a valid EC2 instance type.",
+      "Default": "t2.micro",
+      "Description": "The EC2 instance type to use for application instances.",
+      "Type": "String"
+    },
+    "KeyName": {
+      "Default": "",
+      "Description": "If you need to connect to instances, specify the name of the existing EC2 Key Pair name to use.",
+      "Type": "String"
+    },
+    "LineOfBusinessTag": {
+      "Default": "sample-line-of-business",
+      "Description": "Value for the line of business tag.",
+      "Type": "String"
+    },
+    "OwnerTag": {
+      "Default": "sample-owner",
+      "Description": "Value for the owner tag.",
+      "Type": "String"
+    },
+    "RedirectHttpToHttps": {
+      "AllowedValues": [
+        "yes",
+        "no"
+      ],
+      "ConstraintDescription": "must be a valid selection.",
+      "Default": "no",
+      "Description": "If you will configure an SSL certificate for the web server Elastic Load Balancer and you wish to redirect, from web server EC2 instances created by this stack, traffic from HTTP to HTTPS, select 'yes' here.",
+      "Type": "String"
+    },
+    "Vpc": {
+      "Description": "Please specify the physical ID of the existing VPC to use.",
+      "Type": "AWS::EC2::VPC::Id"
+    },
+    "WebServerAccessFrom": {
+      "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+      "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x.",
+      "Default": "0.0.0.0/0",
+      "Description": "The CIDR block allowed to access instances in the web server tier via SSH and HTTP.  If this is not a standalone stack, the value for this parameter will be ignored.",
+      "MaxLength": "18",
+      "MinLength": "9",
+      "Type": "String"
+    },
+    "WebServerAdminPort": {
+      "AllowedValues": [
+        "22",
+        "3389"
+      ],
+      "ConstraintDescription": "must be a valid selection.",
+      "Default": "22",
+      "Description": "Please specify the TCP port that can be used to connect to manage web server instances.  If this is not a standalone stack, the value for this parameter will be ignored.",
+      "Type": "String"
+    },
+    "WebServerInstanceProfile": {
+      "Description": "Existing instance profile to use for the web server.  The value for this parameter can be found in the Outputs section of the stack that created the instance profile for the web server tier of the application.",
+      "Type": "String"
+    },
+    "WebServerPort": {
+      "AllowedValues": [
+        "443",
+        "80",
+        "8080",
+        "8443"
+      ],
+      "ConstraintDescription": "must be a valid selection.",
+      "Default": "80",
+      "Description": "Please specify the TCP port that will be used by this tier.  If this is not a standalone stack, the value for this parameter will be ignored.",
+      "Type": "String"
+    },
+    "WebServerSecurityGroup": {
+      "Default": "",
+      "Description": "If this is not a standalone stack, please specify the physical ID of the existing WebServerSecurityGroup to use.  The value for this parameter can be found in the Outputs section of the stack that created Security Groups for the application.",
+      "Type": "String"
+    }
+  },
+  "Resources": {
+    "Instance1": {
+      "Metadata": {
+        "AWS::CloudFormation::Init": {
+          "SampleReverseProxySetUp": {
+            "commands": {
+              "01_set_up_healthcheck_endpoint_dir": {
+                "command": "mkdir /var/www/html/health",
+                "cwd": "~"
+              },
+              "02_set_up_healthcheck_endpoint_file": {
+                "command": "touch /var/www/html/health/index.html",
+                "cwd": "~"
+              }
+            },
+            "files": {
+              "/etc/httpd/conf.d/reverse-proxy.conf": {
+                "content": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "ProxyRequests      Off\n",
+                      "RewriteEngine      On\n",
+                      "\n",
+                      {
+                        "Fn::If": [
+                          "SetRedirectHttpToHttps",
+                          "RewriteCond        %{REQUEST_URI} !^/health/$\n",
+                          ""
+                        ]
+                      },
+                      {
+                        "Fn::If": [
+                          "SetRedirectHttpToHttps",
+                          "RewriteCond        %{HTTP:X-Forwarded-Proto} !https\n",
+                          ""
+                        ]
+                      },
+                      {
+                        "Fn::If": [
+                          "SetRedirectHttpToHttps",
+                          "RewriteRule        ^/?(.*) https://%{SERVER_NAME}/$1 [R,L]\n",
+                          "\n"
+                        ]
+                      },
+                      "\n",
+                      "RewriteCond        %{REQUEST_URI} !^/health/\n",
+                      "RewriteRule        ^/(.*) ",
+                      {
+                        "Fn::If": [
+                          "IsAppServerEndpointPortHttps",
+                          "https",
+                          "http"
+                        ]
+                      },
+                      "://",
+                      {
+                        "Ref": "AppServerEndpoint"
+                      },
+                      ":",
+                      {
+                        "Ref": "AppServerEndpointPort"
+                      },
+                      "/$1 [P]\n",
+                      "\n",
+                      "ProxyPassReverse   / ",
+                      {
+                        "Fn::If": [
+                          "IsAppServerEndpointPortHttps",
+                          "https",
+                          "http"
+                        ]
+                      },
+                      "://",
+                      {
+                        "Ref": "AppServerEndpoint"
+                      },
+                      ":",
+                      {
+                        "Ref": "AppServerEndpointPort"
+                      },
+                      "/\n"
+                    ]
+                  ]
+                },
+                "group": "root",
+                "mode": "000644",
+                "owner": "root"
+              }
+            },
+            "packages": {
+              "yum": {
+                "httpd": [
+                  ""
+                ],
+                "mod_ssl": [
+                  ""
+                ]
+              }
+            },
+            "services": {
+              "sysvinit": {
+                "httpd": {
+                  "enabled": "true",
+                  "ensureRunning": "true",
+                  "files": [
+                    "/etc/httpd/conf.d/reverse-proxy.conf"
+                  ]
+                }
+              }
+            }
+          },
+          "configSets": {
+            "SetUp": [
+              "SampleReverseProxySetUp"
+            ]
+          }
+        }
+      },
+      "Properties": {
+        "IamInstanceProfile": {
+          "Ref": "WebServerInstanceProfile"
+        },
+        "ImageId": {
+          "Ref": "Ami"
+        },
+        "InstanceType": {
+          "Ref": "InstanceType"
+        },
+        "KeyName": {
+          "Fn::If": [
+            "KeyNameSpecified",
+            {
+              "Ref": "KeyName"
+            },
+            {
+              "Ref": "AWS::NoValue"
+            }
+          ]
+        },
+        "SecurityGroupIds": [
+          {
+            "Fn::If": [
+              "IsStandaloneStack",
+              {
+                "Ref": "StandaloneWebServerSecurityGroup"
+              },
+              {
+                "Ref": "WebServerSecurityGroup"
+              }
+            ]
+          }
+        ],
+        "SubnetId": {
+          "Fn::Select": [
+            "0",
+            {
+              "Ref": "ApplicationInstancesSubnets"
+            }
+          ]
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "ApplicationTag"
+                  },
+                  {
+                    "Ref": "EnvironmentTag"
+                  },
+                  "WebServer",
+                  "Instance1"
+                ]
+              ]
+            }
+          },
+          {
+            "Key": "LineOfBusiness",
+            "Value": {
+              "Ref": "LineOfBusinessTag"
+            }
+          },
+          {
+            "Key": "Owner",
+            "Value": {
+              "Ref": "OwnerTag"
+            }
+          },
+          {
+            "Key": "Application",
+            "Value": {
+              "Ref": "ApplicationTag"
+            }
+          },
+          {
+            "Key": "Environment",
+            "Value": {
+              "Ref": "EnvironmentTag"
+            }
+          }
+        ],
+        "UserData": {
+          "Fn::Base64": {
+            "Fn::Join": [
+              "\n",
+              [
+                "#!/bin/bash -ex",
+                "if ! uname -a | grep -q 'amzn'; then",
+                "    cd /root",
+                "    curl -LO https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.zip",
+                "    if [ ! `which easy_install` ]; then",
+                "        yum install python-setuptools -y",
+                "    fi",
+                "    easy_install aws-cfn-bootstrap-latest.zip",
+                "    cfn_init_path='/usr/bin'",
+                "else",
+                "    yum update aws-cfn-bootstrap -y",
+                "    cfn_init_path='/opt/aws/bin'",
+                "fi",
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "${cfn_init_path}/cfn-init",
+                      " -v",
+                      " --stack ",
+                      {
+                        "Ref": "AWS::StackName"
+                      },
+                      " --resource Instance1",
+                      " --configsets SetUp",
+                      " --region ",
+                      {
+                        "Ref": "AWS::Region"
+                      }
+                    ]
+                  ]
+                }
+              ]
+            ]
+          }
+        }
+      },
+      "Type": "AWS::EC2::Instance"
+    },
+    "Instance2": {
+      "Metadata": {
+        "AWS::CloudFormation::Init": {
+          "SampleReverseProxySetUp": {
+            "commands": {
+              "01_set_up_healthcheck_endpoint_dir": {
+                "command": "mkdir /var/www/html/health",
+                "cwd": "~"
+              },
+              "02_set_up_healthcheck_endpoint_file": {
+                "command": "touch /var/www/html/health/index.html",
+                "cwd": "~"
+              }
+            },
+            "files": {
+              "/etc/httpd/conf.d/reverse-proxy.conf": {
+                "content": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "ProxyRequests      Off\n",
+                      "RewriteEngine      On\n",
+                      "\n",
+                      {
+                        "Fn::If": [
+                          "SetRedirectHttpToHttps",
+                          "RewriteCond        %{REQUEST_URI} !^/health/$\n",
+                          ""
+                        ]
+                      },
+                      {
+                        "Fn::If": [
+                          "SetRedirectHttpToHttps",
+                          "RewriteCond        %{HTTP:X-Forwarded-Proto} !https\n",
+                          ""
+                        ]
+                      },
+                      {
+                        "Fn::If": [
+                          "SetRedirectHttpToHttps",
+                          "RewriteRule        ^/?(.*) https://%{SERVER_NAME}/$1 [R,L]\n",
+                          "\n"
+                        ]
+                      },
+                      "\n",
+                      "RewriteCond        %{REQUEST_URI} !^/health/\n",
+                      "RewriteRule        ^/(.*) ",
+                      {
+                        "Fn::If": [
+                          "IsAppServerEndpointPortHttps",
+                          "https",
+                          "http"
+                        ]
+                      },
+                      "://",
+                      {
+                        "Ref": "AppServerEndpoint"
+                      },
+                      ":",
+                      {
+                        "Ref": "AppServerEndpointPort"
+                      },
+                      "/$1 [P]\n",
+                      "\n",
+                      "ProxyPassReverse   / ",
+                      {
+                        "Fn::If": [
+                          "IsAppServerEndpointPortHttps",
+                          "https",
+                          "http"
+                        ]
+                      },
+                      "://",
+                      {
+                        "Ref": "AppServerEndpoint"
+                      },
+                      ":",
+                      {
+                        "Ref": "AppServerEndpointPort"
+                      },
+                      "/\n"
+                    ]
+                  ]
+                },
+                "group": "root",
+                "mode": "000644",
+                "owner": "root"
+              }
+            },
+            "packages": {
+              "yum": {
+                "httpd": [
+                  ""
+                ],
+                "mod_ssl": [
+                  ""
+                ]
+              }
+            },
+            "services": {
+              "sysvinit": {
+                "httpd": {
+                  "enabled": "true",
+                  "ensureRunning": "true",
+                  "files": [
+                    "/etc/httpd/conf.d/reverse-proxy.conf"
+                  ]
+                }
+              }
+            }
+          },
+          "configSets": {
+            "SetUp": [
+              "SampleReverseProxySetUp"
+            ]
+          }
+        }
+      },
+      "Properties": {
+        "IamInstanceProfile": {
+          "Ref": "WebServerInstanceProfile"
+        },
+        "ImageId": {
+          "Ref": "Ami"
+        },
+        "InstanceType": {
+          "Ref": "InstanceType"
+        },
+        "KeyName": {
+          "Fn::If": [
+            "KeyNameSpecified",
+            {
+              "Ref": "KeyName"
+            },
+            {
+              "Ref": "AWS::NoValue"
+            }
+          ]
+        },
+        "SecurityGroupIds": [
+          {
+            "Fn::If": [
+              "IsStandaloneStack",
+              {
+                "Ref": "StandaloneWebServerSecurityGroup"
+              },
+              {
+                "Ref": "WebServerSecurityGroup"
+              }
+            ]
+          }
+        ],
+        "SubnetId": {
+          "Fn::Select": [
+            "1",
+            {
+              "Ref": "ApplicationInstancesSubnets"
+            }
+          ]
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "ApplicationTag"
+                  },
+                  {
+                    "Ref": "EnvironmentTag"
+                  },
+                  "WebServer",
+                  "Instance2"
+                ]
+              ]
+            }
+          },
+          {
+            "Key": "LineOfBusiness",
+            "Value": {
+              "Ref": "LineOfBusinessTag"
+            }
+          },
+          {
+            "Key": "Owner",
+            "Value": {
+              "Ref": "OwnerTag"
+            }
+          },
+          {
+            "Key": "Application",
+            "Value": {
+              "Ref": "ApplicationTag"
+            }
+          },
+          {
+            "Key": "Environment",
+            "Value": {
+              "Ref": "EnvironmentTag"
+            }
+          }
+        ],
+        "UserData": {
+          "Fn::Base64": {
+            "Fn::Join": [
+              "\n",
+              [
+                "#!/bin/bash -ex",
+                "if ! uname -a | grep -q 'amzn'; then",
+                "    cd /root",
+                "    curl -LO https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.zip",
+                "    if [ ! `which easy_install` ]; then",
+                "        yum install python-setuptools -y",
+                "    fi",
+                "    easy_install aws-cfn-bootstrap-latest.zip",
+                "    cfn_init_path='/usr/bin'",
+                "else",
+                "    yum update aws-cfn-bootstrap -y",
+                "    cfn_init_path='/opt/aws/bin'",
+                "fi",
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "${cfn_init_path}/cfn-init",
+                      " -v",
+                      " --stack ",
+                      {
+                        "Ref": "AWS::StackName"
+                      },
+                      " --resource Instance2",
+                      " --configsets SetUp",
+                      " --region ",
+                      {
+                        "Ref": "AWS::Region"
+                      }
+                    ]
+                  ]
+                }
+              ]
+            ]
+          }
+        }
+      },
+      "Type": "AWS::EC2::Instance"
+    },
+    "StandaloneWebServerSecurityGroup": {
+      "Condition": "IsStandaloneStack",
+      "Properties": {
+        "GroupDescription": "Allow access from a user specified CIDR block.",
+        "SecurityGroupEgress": [
+          {
+            "CidrIp": "0.0.0.0/0",
+            "FromPort": "80",
+            "IpProtocol": "tcp",
+            "ToPort": "80"
+          },
+          {
+            "CidrIp": "0.0.0.0/0",
+            "FromPort": "443",
+            "IpProtocol": "tcp",
+            "ToPort": "443"
+          }
+        ],
+        "SecurityGroupIngress": [
+          {
+            "CidrIp": {
+              "Ref": "WebServerAccessFrom"
+            },
+            "FromPort": {
+              "Ref": "WebServerAdminPort"
+            },
+            "IpProtocol": "tcp",
+            "ToPort": {
+              "Ref": "WebServerAdminPort"
+            }
+          },
+          {
+            "CidrIp": {
+              "Ref": "WebServerAccessFrom"
+            },
+            "FromPort": {
+              "Ref": "WebServerPort"
+            },
+            "IpProtocol": "tcp",
+            "ToPort": {
+              "Ref": "WebServerPort"
+            }
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "ApplicationTag"
+                  },
+                  {
+                    "Ref": "EnvironmentTag"
+                  },
+                  "Rds",
+                  "SecurityGroup"
+                ]
+              ]
+            }
+          },
+          {
+            "Key": "LineOfBusiness",
+            "Value": {
+              "Ref": "LineOfBusinessTag"
+            }
+          },
+          {
+            "Key": "Owner",
+            "Value": {
+              "Ref": "OwnerTag"
+            }
+          },
+          {
+            "Key": "Application",
+            "Value": {
+              "Ref": "ApplicationTag"
+            }
+          },
+          {
+            "Key": "Environment",
+            "Value": {
+              "Ref": "EnvironmentTag"
+            }
+          }
+        ],
+        "VpcId": {
+          "Ref": "Vpc"
+        }
+      },
+      "Type": "AWS::EC2::SecurityGroup"
+    }
+  }
+}
