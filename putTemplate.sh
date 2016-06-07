@@ -1,9 +1,9 @@
 #!/bin/bash
 
-export host=52.90.208.252
-export templateDir="$HOME/kubernetes/examples/storm/"
+export host=${host-ip}
+export templateDir="./cf-templates"
 cd $templateDir
-for data in `ls *.json | awk -F. '{print $1}'`; do
+for data in `ls *.template | awk -F. '{print $1}'`; do
   echo "put template $data"
-  curl -X PUT -H "Content-type: application/json" -H "Accept: application/json" --data @${data}.json http://${host}:8080/api/template/kub_${data}
+  curl -X PUT -H "Content-type: application/json" -H "Accept: application/json" --data @${data}.template http://${host}:8080/api/template/${data}
 done
