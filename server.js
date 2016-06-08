@@ -101,14 +101,16 @@ router.put('/parameters/template/:templateid',function(req, res) {
       res.send ("undefined templateId or userId");
 
     var  jsonStr = JSON.stringify(parameterBody, null,2);
+    console.log(jsonStr);
+
     var hash = crypto.createHash('md5').update(jsonStr).digest('hex');
 
     var item = {
                 TableName: "service-parameters",
                 Item: {
-                  "id": userId,
+                  "id": hash,
                   "template_id": templateId,
-                  "paramsHash": hash,
+                  "userid": userId,
                   "params": parameterBody
                 }
     };

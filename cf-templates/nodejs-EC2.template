@@ -1,0 +1,137 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+
+  "Description" : "Node.js server",
+
+  "Parameters" : {
+    "KeyName" : {
+      "Description" : "Name of an existing EC2 KeyPair to enable SSH access",
+      "Type" : "String"
+    },
+
+    "InstanceType" : {
+      "Type" : "String",
+      "Default" : "t2.micro",
+      "AllowedValues" : [ "t2.micro","m1.medium","m1.large","m1.xlarge","m2.xlarge","m2.2xlarge","m2.4xlarge","c1.medium","c1.xlarge","cc1.4xlarge"],
+      "Description" : "EC2 instance type (e.g. m1.small)"
+    },
+
+    "VpcId" : {
+        "Type" : "AWS::EC2::VPC::Id",
+        "Default":"vpc-36a5b354",
+        "Description" : "VpcId of your existing Virtual Private Cloud (VPC)"
+    },
+
+    "SecurityGroupName" : {
+      "Description" : "Security group name",
+      "Type" : "String"
+    }
+  },
+
+  "Mappings" : {
+    "InstanceTypeArch" : {
+      "t2.micro"    : { "Arch" : "64HVM" },
+      "m1.medium"   : { "Arch" : "64" },
+      "m1.large"    : { "Arch" : "64" },
+      "m1.xlarge"   : { "Arch" : "64" },
+      "m2.xlarge"   : { "Arch" : "64" },
+      "m2.2xlarge"  : { "Arch" : "64" },
+      "m2.4xlarge"  : { "Arch" : "64" },
+      "c1.medium"   : { "Arch" : "64" },
+      "c1.xlarge"   : { "Arch" : "64" },
+      "cc1.4xlarge" : { "Arch" : "64HVM" }
+    },
+
+    "RegionImageZone" : {
+      "us-east-1"      : { "64" : "ami-f565ba9c", "64HVM" : "ami-fce3c696" },
+      "us-west-2"      : { "64" : "ami-30c64a00", "64HVM" : "NOT_YET_SUPPORTED" },
+      "us-west-1"      : { "64" : "ami-d98cd49c", "64HVM" : "NOT_YET_SUPPORTED" },
+      "eu-west-1"      : { "64" : "ami-ff231b8b", "64HVM" : "NOT_YET_SUPPORTED" },
+      "ap-southeast-1" : { "64" : "ami-b23374e0", "64HVM" : "NOT_YET_SUPPORTED" },
+      "ap-northeast-1" : { "64" : "ami-047bca05", "64HVM" : "NOT_YET_SUPPORTED" },
+      "sa-east-1"      : { "64" : "ami-ae855bb3", "64HVM" : "NOT_YET_SUPPORTED" }
+    }
+  },
+
+  "Resources" : {
+    "CfnUser" : {
+      "Type" : "AWS::IAM::User",
+      "Properties" : {
+        "Path": "/",
+        "Policies": [ {
+          "PolicyName": "root",
+          "PolicyDocument": { "Statement": [ {
+                    "Effect":"Allow",
+                    "Action":"cloudformation:DescribeStackResource",
+                    "Resource":"*"
+                } ] }
+         } ]
+       }
+     },
+    "InstanceProfile" : {
+          "Type" : "AWS::IAM::InstanceProfile",
+          "Properties" : {
+            "Path" : "/",
+            "Roles" : ["dynamoDBAccess"]
+          }
+    },
+
+    "HostKeys" : {
+      "Type" : "AWS::IAM::AccessKey",
+      "Properties" : {
+        "UserName" : { "Ref" : "CfnUser" }
+      }
+    },
+
+    "NodejsInstance" : {
+      "Type" : "AWS::EC2::Instance",
+      "Metadata" : {
+        "AWS::CloudFormation::Init" : {
+          "config" : {
+            "packages" : {
+              "apt": {
+                    "nodejs": [],
+                    "make": [],
+                    "git" : [],
+                    "npm": []
+                  }
+              }
+            }
+          }
+        },
+
+      "Properties" : {
+        "InstanceType" : { "Ref" : "InstanceType" },
+        "IamInstanceProfile" : {"Ref" : "InstanceProfile"},
+        "ImageId" : { "Fn::FindInMap" : [ "RegionImageZone", { "Ref" : "AWS::Region" },
+          { "Fn::FindInMap" : [ "InstanceTypeArch", { "Ref" : "InstanceType" }, "Arch" ] } ] },
+        "SecurityGroups" : [ { "Ref" : "SecurityGroupName" } ],
+        "KeyName" : { "Ref" : "KeyName" },
+        "Tags" : [ {"Key" : "Name", "Value" : "example-nodejs-server"}],
+        "UserData" : { "Fn::Base64" : { "Fn::Join" : ["", [
+          "#!/bin/bash\n",
+          "apt-get update\n",
+          "apt-get -y install python-setuptools\n",
+          "mkdir aws-cfn-bootstrap-latest\n",
+          "curl https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz | tar xz -C aws-cfn-bootstrap-latest --strip-components 1\n",
+          "easy_install aws-cfn-bootstrap-latest\n",
+          "curl -sL https://deb.nodesource.com/setup_6.x | bash -\n",
+          "apt-get -y install nodejs git\n",
+
+          "## Initialize CloudFormation bits\n",
+          "/opt/aws/bin/cfn-init -v -s ", { "Ref" : "AWS::StackName" }, " -r NodejsInstance",
+          "   --access-key ",  { "Ref" : "HostKeys" },
+          "   --secret-key ", {"Fn::GetAtt": ["HostKeys", "SecretAccessKey"]},
+          "   --region ", { "Ref" : "AWS::Region" }, " > /tmp/cfn-init.log 2>&1 || error_exit $(</tmp/cfn-init.log)\n"
+        ] ] } }
+      }
+    }
+  },
+
+  "Outputs" : {
+    "InstanceName" : {
+      "Value" : { "Fn::GetAtt" : [ "NodejsInstance", "PublicDnsName" ] },
+      "Description" : "public DNS name of the new NodejsInstance"
+    }
+  }
+}
