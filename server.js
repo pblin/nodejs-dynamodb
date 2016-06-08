@@ -14,12 +14,18 @@ var AWS = require("aws-sdk");
 var request = require('sync-request');
 var credentials = { accessKeyId : "",
                     secretKey   : "",
-                    region: "us-west-2"};
+                    region: ""};
 
 var response = request('GET', 'http://169.254.169.254/latest/meta-data/iam/security-credentials/dynamoDBAccess');
+var instanceInfo = request('GET', 'http://169.254.169.254/latest/dynamic/instance-identity/document');
 var jsonData = JSON.parse(response.body.toString('utf-8'));
+var jsonInstanceInfo = JSON.parse(instanceInfo.body.toString('utf-8'));
+
+console.log("region="+jsonInstanceInfo.region);
+
 credentials.accessKeyId = jsonData.AccessKeyId;
 credentials.secretKey = jsonData.SecretAccessKey;
+credentials.region = jsonInstanceInfo.region;
 
 AWS.config.update(credentials);
 var dynamoDB = new AWS.DynamoDB();
