@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export host=${host-ip}
+export host=localhost
 export templateDir="./cf-templates"
 cd $templateDir
 for data in `ls *.template | awk -F. '{print $1}'`; do
