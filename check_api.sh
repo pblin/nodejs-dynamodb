@@ -9,4 +9,4 @@ case "$(pidof node | wc -w)" in
     sleep 5000
     ;;
 esac
-done
+done &
