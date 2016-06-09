@@ -1,3 +1,3 @@
 #!/bin/bash
-node server.js >> out.txt &
+node server.js > out.txt &
 ~
