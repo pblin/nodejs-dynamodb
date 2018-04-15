@@ -58,7 +58,7 @@ router.put('/incident/:hashkey',function(req, res) {
     var incidentInfo=req.body;
 
     //console.log(req.body);
-    if (haskey == undefined || incidentInfo == undefined )
+    if (hashkey == undefined || incidentInfo == undefined )
       res.send ("undefined hashkey or incidentInfo");
 
     var incidentInfoStr = JSON.stringify(incidentInfo,null,2);
@@ -69,7 +69,7 @@ router.put('/incident/:hashkey',function(req, res) {
     var item = {
                 TableName: "car_info",
                 Item: {
-                  "hashkey": hashkey,
+                  "data_hash": hashkey,
                   "incidentInfo": incidentInfoStr
                 }
     };
@@ -100,9 +100,9 @@ router.get('/incident/:hashkey', function(req, res) {
 
   var params = {
       TableName : "car_info",
-      KeyConditionExpression: "#hashkey = :xxxx",
+      KeyConditionExpression: "#data_hash = :xxxx",
       ExpressionAttributeNames:{
-          "#hashkey": "hashkey"
+          "#data_hash": "hashkey"
       },
       ExpressionAttributeValues: {
           ":xxxx":tId
