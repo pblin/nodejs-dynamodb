@@ -6,6 +6,7 @@
 var express    = require('express');        // call express
 var app        = express();                 // define our app using express
 var bodyParser = require('body-parser');
+var cors = require('cors')
 //var dynamoDB = require('./app/models/dynamoDB').DynamoDB(credentials)
 //var attr = require('dynamodb-data-types').AttributeValue;
 //var dynamoDB = require('dynamodb').ddb(credentials);
@@ -36,6 +37,7 @@ var crypto = require ('crypto');
 //var step = require('step');
 // configure app to use bodyParser()
 // this will let us get the data from a POST
+app.use(cors());
 app.use(bodyParser.urlencoded({ limit:"10mb", extended: true }));
 app.use(bodyParser.json({limit:"10mb"}));
 //app.use(bodyParser());
